@@ -117,7 +117,7 @@ resource "aws_eip" "nat_gateway_eip" {
 
 resource "aws_nat_gateway" "eks_ngw" {
   allocation_id = aws_eip.nat_gateway_eip.id
-  subnet_id = aws_subnet.public_subnet_1.id
+  subnet_id     = aws_subnet.public_subnet_1.id
 
   tags = {
     Name = "eks-nat-gateway"
@@ -151,4 +151,43 @@ resource "aws_route_table_association" "private_route_1" {
 resource "aws_route_table_association" "private_route_2" {
   subnet_id      = aws_subnet.private_subnet_2.id
   route_table_id = aws_route_table.private_route.id
+}
+
+# Create security group for Kubernetes (EKS) worker nodes
+
+resource "aws_security_group" "eks_node_sg" {
+  name        = "eks_node_sg"
+  description = "Security group for EKS worker nodes"
+  vpc_id      = aws_vpc.eks_vpc.id
+
+    # Allow node-to-node communication within this security group
+    ingress {
+      description     = "Allow all traffic within the eks_node_sg security group"
+      from_port       = 0 # Since all protocols are allowed from and to ports can be set to 0
+      to_port         = 0
+      protocol        = "-1" # Allow all protocols
+      self            = true # Could also specify this as security_groups = [aws_security_group.eks_node_sg.id] 
+    }
+
+    # Allow HTTPS traffic from the EKS control plane (replace CIDR with control plane security groups or IPs later)
+    ingress {
+      description   = "Allow HTTPS traffic from the EKS control plane"
+      from_port     = 443
+      to_port       = 443
+      protocol      = "tcp"
+      cidr_blocks   = ["0.0.0.0/0"] # Narrow this later
+    }
+ 
+    # Allow all outbound traffic
+    egress {
+      description   = "Allow all outbound traffic for worker nodes"
+      from_port     = 0
+      to_port       = 0
+      protocol      = "-1" 
+      cidr_blocks   =  ["0.0.0.0/0"] 
+    }
+
+  tags = {
+    Name = "eks-node-sg"
+  }
 }
