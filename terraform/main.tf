@@ -14,7 +14,7 @@ resource "aws_vpc" "eks_vpc" {
 
 resource "aws_subnet" "public_subnet_1" {
   vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = "10.0.3.0/24"
+  cidr_block              = "10.0.4.0/24"
   availability_zone       = "us-east-1a" 
   map_public_ip_on_launch = true # Assign instances in this subnet a public IP upon launch
 
@@ -30,12 +30,26 @@ resource "aws_subnet" "public_subnet_1" {
 
 resource "aws_subnet" "public_subnet_2" {
   vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = "10.0.4.0/24"
+  cidr_block              = "10.0.5.0/24"
   availability_zone       = "us-east-1b"
   map_public_ip_on_launch = true
 
    tags = {
     Name = "eks-public-subnet-2"
+    "kubernetes.io/role/elb" = "1" 
+  }
+}
+
+# Create public subnet 3
+
+resource "aws_subnet" "public_subnet_3" {
+  vpc_id                  = aws_vpc.eks_vpc.id
+  cidr_block              = "10.0.6.0/24"
+  availability_zone       = "us-east-1c"
+  map_public_ip_on_launch = true
+
+   tags = {
+    Name = "eks-public-subnet-3"
     "kubernetes.io/role/elb" = "1" 
   }
 }
@@ -66,6 +80,19 @@ resource "aws_subnet" "private_subnet_2" {
   }
 }
 
+# Create private subnet 3
+
+resource "aws_subnet" "private_subnet_3" {
+  vpc_id            = aws_vpc.eks_vpc.id
+  cidr_block        = "10.0.3.0/24"
+  availability_zone = "us-east-1c"
+
+  tags = {
+    Name = "eks-private-subnet-3"
+    "kubernetes.io/role/internal-elb" = "1" 
+  }
+}
+
 # Create Internet Gateway
 
 resource "aws_internet_gateway" "eks_igw" {
@@ -91,7 +118,7 @@ resource "aws_route_table" "public_route" {
   }
 }
 
-# Associate the Route Table with both public subnets
+# Associate the Route Table with all three public subnets
 
 resource "aws_route_table_association" "public_route_1" {
   subnet_id      = aws_subnet.public_subnet_1.id
@@ -100,6 +127,11 @@ resource "aws_route_table_association" "public_route_1" {
 
 resource "aws_route_table_association" "public_route_2" {
   subnet_id      = aws_subnet.public_subnet_2.id
+  route_table_id = aws_route_table.public_route.id
+}
+
+resource "aws_route_table_association" "public_route_3" {
+  subnet_id      = aws_subnet.public_subnet_3.id
   route_table_id = aws_route_table.public_route.id
 }
 
@@ -141,7 +173,7 @@ resource "aws_route_table" "private_route" {
   }
 }
 
-# Associate the Route Table with both private subnets
+# Associate the Route Table with all three private subnets
 
 resource "aws_route_table_association" "private_route_1" {
   subnet_id      = aws_subnet.private_subnet_1.id
@@ -150,6 +182,11 @@ resource "aws_route_table_association" "private_route_1" {
 
 resource "aws_route_table_association" "private_route_2" {
   subnet_id      = aws_subnet.private_subnet_2.id
+  route_table_id = aws_route_table.private_route.id
+}
+
+resource "aws_route_table_association" "private_route_3" {
+  subnet_id      = aws_subnet.private_subnet_3.id
   route_table_id = aws_route_table.private_route.id
 }
 
@@ -163,9 +200,9 @@ resource "aws_security_group" "eks_node_sg" {
     # Allow node-to-node communication within this security group
     ingress {
       description     = "Allow all traffic within the eks_node_sg security group"
-      from_port       = 0 # Since all protocols are allowed from and to ports can be set to 0
+      from_port       = 0 
       to_port         = 0
-      protocol        = "-1" # Allow all protocols
+      protocol        = "-1"
       self            = true # Could also specify this as security_groups = [aws_security_group.eks_node_sg.id] 
     }
 
@@ -266,7 +303,56 @@ resource "aws_iam_role_policy_attachment" "eks_worker_AmazonEKS_CNI_Policy" {
   role       = aws_iam_role.eks_worker_role.name
 }
 
-###START BASTION HOST SECTION###
+# Create EKS Cluster
+
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = "automated-eck-on-eks-cluster"
+  role_arn = aws_iam_role.eks_control_plane_role.arn
+
+  vpc_config {
+    subnet_ids = [
+      aws_subnet.public_subnet_1.id,
+      aws_subnet.public_subnet_2.id,
+      aws_subnet.public_subnet_3.id,
+      aws_subnet.private_subnet_1.id,
+      aws_subnet.private_subnet_2.id,
+      aws_subnet.private_subnet_3.id
+    ]
+    endpoint_public_access  = false
+    endpoint_private_access = true # API access to cluster is only available internally through Bastion host
+  }
+
+  depends_on = [ aws_iam_role_policy_attachment.eks_control_plane_AmazonEKSClusterPolicy ] # Make sure policy is attached to role before creating cluster
+}
+
+# Create Node Group for Worker Nodes
+
+resource "aws_eks_node_group" "eks_worker_node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "automated-eck-on-eks-worker-node-group"
+  node_role_arn   = aws_iam_role.eks_worker_role.arn
+  subnet_ids      = [
+    aws_subnet.private_subnet_1.id,
+    aws_subnet.private_subnet_2.id,
+    aws_subnet.private_subnet_3.id
+  ]
+  scaling_config {
+    desired_size = 3 #Provision 3 nodes to start
+    max_size     = 6
+    min_size     = 1
+  }
+
+  instance_types = ["t3.small"]
+  ami_type       = "AL2_x86_64" # Amazon Linux 2
+
+  depends_on = [ 
+    aws_iam_role_policy_attachment.eks_worker_AmazonEKSWorkerNodePolicy, # Make sure all policies are attached to role before creating worker nodes
+    aws_iam_role_policy_attachment.eks_worker_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.eks_worker_AmazonEC2ContainerRegistryReadOnly
+  ]
+}
+
+### START BASTION HOST SECTION ###
 
 # Lookup latest Ubuntu 22.04 Amazon Machine Image (AMI) to install on Bastion host
 
@@ -344,8 +430,4 @@ resource "aws_instance" "bastion_host" {
     } 
 }
 
-# Output Bastion host public IP and private key
-# Download key using terraform output -raw bastion_private_key_pem > bastion.key
-# chmod 600 bastion.key
-
-###END BASTION HOST SECTION###
+### END BASTION HOST SECTION ###
