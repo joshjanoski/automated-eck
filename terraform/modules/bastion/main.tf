@@ -59,6 +59,18 @@ resource "aws_security_group" "bastion_host_sg" {
     }
 }
 
+# Create security group rule to allow any host in the Bastion host security group access to ping and communciate with the EKS worker nodes
+
+resource "aws_security_group_rule" "bastion_to_worker_nodes_sg_rule" {
+  description              = "Allow Bastion host to communicate with EKS worker nodes"
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = var.eks_cluster_security_group_id
+  source_security_group_id = aws_security_group.bastion_host_sg.id
+}
+
 # Create Bastion host EC2 instance 
 
 resource "aws_instance" "bastion_host" {

@@ -3,7 +3,7 @@
 resource "aws_security_group" "eks_node_sg" {
   name        = "eks_node_sg"
   description = "Security group for EKS worker nodes"
-  vpc_id      = aws_vpc.eks_vpc.id
+  vpc_id      = var.eks_vpc_id
 
     # Allow node-to-node communication within this security group
     ingress {
@@ -40,23 +40,14 @@ resource "aws_security_group" "eks_node_sg" {
 # Create EKS Cluster
 
 resource "aws_eks_cluster" "eks_cluster" {
-  name     = "automated-eck-on-eks-cluster"
-  role_arn = aws_iam_role.eks_control_plane_role.arn
+  name     = var.eks_cluster_name
+  role_arn = var.eks_control_plane_role_arn
 
   vpc_config {
-    subnet_ids = [
-      aws_subnet.public_subnet_1.id,
-      aws_subnet.public_subnet_2.id,
-      aws_subnet.public_subnet_3.id,
-      aws_subnet.private_subnet_1.id,
-      aws_subnet.private_subnet_2.id,
-      aws_subnet.private_subnet_3.id
-    ]
+    subnet_ids = var.eks_subnet_ids
     endpoint_public_access  = false
     endpoint_private_access = true # API access to cluster is only available internally through Bastion host
   }
-
-  depends_on = [ aws_iam_role_policy_attachment.eks_control_plane_AmazonEKSClusterPolicy ] # Make sure policy is attached to role before creating cluster
 }
 
 # Create Node Group for Worker Nodes
@@ -64,12 +55,8 @@ resource "aws_eks_cluster" "eks_cluster" {
 resource "aws_eks_node_group" "eks_worker_node_group" {
   cluster_name    = aws_eks_cluster.eks_cluster.name
   node_group_name = "automated-eck-on-eks-worker-node-group"
-  node_role_arn   = aws_iam_role.eks_worker_role.arn
-  subnet_ids      = [
-    aws_subnet.private_subnet_1.id,
-    aws_subnet.private_subnet_2.id,
-    aws_subnet.private_subnet_3.id
-  ]
+  node_role_arn   = var.eks_worker_role_arn
+  subnet_ids      = var.eks_subnet_ids
   scaling_config {
     desired_size = 3 #Provision 3 nodes to start
     max_size     = 6
@@ -78,10 +65,4 @@ resource "aws_eks_node_group" "eks_worker_node_group" {
 
   instance_types = ["t3.small"]
   ami_type       = "AL2_x86_64" # Amazon Linux 2
-
-  depends_on = [ 
-    aws_iam_role_policy_attachment.eks_worker_AmazonEKSWorkerNodePolicy, # Make sure all policies are attached to role before creating worker nodes
-    aws_iam_role_policy_attachment.eks_worker_AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.eks_worker_AmazonEC2ContainerRegistryReadOnly
-  ]
 }
