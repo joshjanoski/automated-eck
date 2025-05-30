@@ -36,14 +36,14 @@ resource "aws_key_pair" "bastion_host_key_pair" {
 resource "aws_security_group" "bastion_host_sg" {
     name        = "bastion-host-sg"
     description = "Security group for Bastion host"
-    vpc_id = aws_vpc.eks_vpc.id
+    vpc_id = var.vpc_id
 
     ingress {
         description = "Allow SSH to Bastion host from user-defined IP"
         from_port   = 22
         to_port     = 22
         protocol    = "tcp"
-        cidr_blocks = [var.bastion_host_allowed_ip] # IP specified in variables.tf
+        cidr_blocks = var.allowed_ips # IPs specified in variables.tf
     }
 
     egress {
@@ -63,8 +63,8 @@ resource "aws_security_group" "bastion_host_sg" {
 
 resource "aws_instance" "bastion_host" {
     ami                         = data.aws_ami.ubuntu_latest.id
-    instance_type               = "t3.micro"
-    subnet_id                   = aws_subnet.public_subnet_1.id
+    instance_type               = var.instance_type
+    subnet_id                   = var.subnet_id
     vpc_security_group_ids      = [aws_security_group.bastion_host_sg.id]
     key_name                    = aws_key_pair.bastion_host_key_pair.key_name
     associate_public_ip_address = true

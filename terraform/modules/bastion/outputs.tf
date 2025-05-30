@@ -13,3 +13,10 @@ output "bastion_host_public_ip" {
     value = aws_instance.bastion_host.public_ip
     description = "Public IP of Bastion host"
 }
+
+# Output bastion host instance ID 
+
+output "bastion_host_instance_id" {
+  description = "ID of Bastion host"
+  value       = aws_instance.bastion_host.id
+}
