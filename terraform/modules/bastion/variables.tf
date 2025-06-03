@@ -20,7 +20,13 @@ variable subnet_id {
   type        =  string
 }
 
+variable "iam_instance_profile_name" {
+  description = "Name of IAM instance profile to attach to Bastion host"
+}
+
 variable "eks_cluster_security_group_id" {
   description = "ID of the security group created automatically by EKS for the control plane"
   type        = string
 }
+
+

@@ -42,6 +42,7 @@ resource "aws_security_group" "eks_node_sg" {
 resource "aws_eks_cluster" "eks_cluster" {
   name     = var.eks_cluster_name
   role_arn = var.eks_control_plane_role_arn
+  version = var.eks_cluster_version
 
   vpc_config {
     subnet_ids = var.eks_subnet_ids
@@ -64,5 +65,5 @@ resource "aws_eks_node_group" "eks_worker_node_group" {
   }
 
   instance_types = ["t3.small"]
-  ami_type       = "AL2_x86_64" # Amazon Linux 2
+  ami_type       = "AL2023_x86_64_STANDARD" # Amazon Linux 2023
 }

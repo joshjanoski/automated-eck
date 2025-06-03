@@ -76,10 +76,12 @@ resource "aws_security_group_rule" "bastion_to_worker_nodes_sg_rule" {
 resource "aws_instance" "bastion_host" {
     ami                         = data.aws_ami.ubuntu_latest.id
     instance_type               = var.instance_type
+    iam_instance_profile        = var.iam_instance_profile_name
     subnet_id                   = var.subnet_id
     vpc_security_group_ids      = [aws_security_group.bastion_host_sg.id]
     key_name                    = aws_key_pair.bastion_host_key_pair.key_name
     associate_public_ip_address = true
+    user_data = file("${path.module}/bastion_setup.sh")
 
     tags = {
         Name = "eks-bastion-host"

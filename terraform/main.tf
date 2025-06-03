@@ -7,9 +7,10 @@ module "vpc" {
 # Load Bastion module
 
 module "bastion" {
-  source     = "./modules/bastion"
-  vpc_id = module.vpc.vpc_id
-  subnet_id = module.vpc.public_subnet_ids[0] # Pull the first subnet from the list which is public-subnet-1
+  source                          = "./modules/bastion"
+  vpc_id                          = module.vpc.vpc_id
+  subnet_id                       = module.vpc.public_subnet_ids[0] # Pull the first subnet from the list which is public-subnet-1
+  iam_instance_profile_name       = module.iam.iam_instance_profile_name
   eks_cluster_security_group_id   = module.eks.eks_cluster_security_group_id
 }
 
@@ -17,6 +18,7 @@ module "bastion" {
 
 module "iam" {
   source     = "./modules/iam"
+  eks_cluster_arn = module.eks.eks_cluster_arn
 }
 
 # Load EKS module
@@ -29,5 +31,5 @@ module "eks" {
     module.vpc.private_subnet_ids
   )
   eks_control_plane_role_arn = module.iam.eks_control_plane_role_arn
-  eks_worker_role_arn = module.iam.eks_worker_role_arn
+  eks_worker_role_arn        = module.iam.eks_worker_role_arn
 }

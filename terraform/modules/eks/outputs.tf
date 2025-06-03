@@ -4,6 +4,13 @@ output "eks_cluster_name" {
     value = aws_eks_cluster.eks_cluster.name
 }
 
+# Output EKS cluster ARN
+
+output "eks_cluster_arn" {
+    value = aws_eks_cluster.eks_cluster.arn
+}
+
+
 # Output EKS cluster endpoint
 
 output "eks_cluster_endpoint" {
