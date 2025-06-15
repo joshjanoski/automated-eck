@@ -4,16 +4,6 @@ module "vpc" {
   source = "./modules/vpc"
 }
 
-# Load Bastion module
-
-module "bastion" {
-  source                          = "./modules/bastion"
-  vpc_id                          = module.vpc.vpc_id
-  subnet_id                       = module.vpc.public_subnet_ids[0] # Pull the first subnet from the list which is public-subnet-1
-  iam_instance_profile_name       = module.iam.iam_instance_profile_name
-  eks_cluster_security_group_id   = module.eks.eks_cluster_security_group_id
-}
-
 # Load IAM module
 
 module "iam" {

@@ -29,3 +29,9 @@ variable "eks_worker_role_arn" {
   description = "IAM role ARN for the EKS worker nodes"
   type        = string
 }
+
+variable "public_access_cidrs" {
+  description = "The list of CIDR blocks allowed to access the EKS public API endpoint"
+  type        = list(string)
+  default     = [ "0.0.0.0/0" ] # This should be changed to something more restrictive 
+}

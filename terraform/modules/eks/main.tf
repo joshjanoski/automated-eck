@@ -13,15 +13,6 @@ resource "aws_security_group" "eks_node_sg" {
       protocol        = "-1" # Allow all protocols
       self            = true # Could also specify this as security_groups = [aws_security_group.eks_node_sg.id] 
     }
-
-    # Allow HTTPS traffic from the EKS control plane (replace CIDR with control plane security groups or IPs later)
-    ingress {
-      description   = "Allow HTTPS traffic from the EKS control plane"
-      from_port     = 443
-      to_port       = 443
-      protocol      = "tcp"
-      cidr_blocks   = ["0.0.0.0/0"] # Narrow this later
-    }
  
     # Allow all outbound traffic
     egress {
@@ -42,12 +33,13 @@ resource "aws_security_group" "eks_node_sg" {
 resource "aws_eks_cluster" "eks_cluster" {
   name     = var.eks_cluster_name
   role_arn = var.eks_control_plane_role_arn
-  version = var.eks_cluster_version
+  version  = var.eks_cluster_version
 
   vpc_config {
     subnet_ids = var.eks_subnet_ids
-    endpoint_public_access  = false
-    endpoint_private_access = true # API access to cluster is only available internally through Bastion host
+    endpoint_public_access  = true
+    endpoint_private_access = true
+    public_access_cidrs     = var.public_access_cidrs
   }
 }
 
